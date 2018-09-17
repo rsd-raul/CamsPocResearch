@@ -1,45 +1,45 @@
 package com.naevatec.camspoc_research;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.text.format.Formatter;
 import android.util.Log;
 import android.widget.Button;
-
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.util.Collections;
-import java.util.Enumeration;
-
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceEvent;
+import javax.jmdns.ServiceInfo;
 import javax.jmdns.ServiceListener;
 import javax.jmdns.ServiceTypeListener;
 
 public class MainActivity extends AppCompatActivity implements ServiceListener, ServiceTypeListener {
 
+    // CONSTANTS -----------------------------------------------------------------------------------
+
     public static final String TAG = "MainActivity";
+
+    public static final String MQTT_SERVER_URI = "tcp://broker.hivemq.com:1883";
+    private static final String MQTT_TOPIC = "foo/bar";
+    private static final String BJ_SERVICE_TYPE = "_googlecast._tcp.local.";
 
     private MqttAndroidClient client;
     private JmDNS jmdns;
     private WifiManager.MulticastLock multicastLock;
-    private final String SERVICE_TYPE = "_googlecast._tcp.local.";
-    private final String MQTT_TOPIC = "foo/bar";
+
+    // LIFECYCLE -----------------------------------------------------------------------------------
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,37 +57,13 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
         bjStopScanButton.setOnClickListener(v -> releaseLock());
     }
 
-    private void obtainLockAndScan() {
-        try {
-            // Creating a multicast lock
-            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            multicastLock = wm.createMulticastLock(getClass().getName());
-            multicastLock.setReferenceCounted(false);
-
-            final InetAddress deviceIpAddress = getIPAddress(true);
-            multicastLock.acquire();
-            jmdns = JmDNS.create(deviceIpAddress, getHostName("HOSTNAME_DEFAULT_VALUE"));
-            jmdns.addServiceTypeListener(this);
-            jmdns.addServiceListener(SERVICE_TYPE, this);
-        } catch (NullPointerException | IOException e){
-            Log.e(TAG, "onFailure: 1", e);
-        }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releaseLock();
     }
 
-    private void releaseLock() {
-        if(multicastLock != null)
-            multicastLock.release();
-
-        if(jmdns != null) {
-            jmdns.unregisterAllServices();
-            try {
-                jmdns.close();
-                jmdns = null;
-            } catch (IOException e) {
-                Log.e(TAG, "Failure releasing the multicast lock", e);
-            }
-        }
-    }
+    // MQTT ----------------------------------------------------------------------------------------
 
     private void publishMessage(String jsonPayload) {
         try {
@@ -102,7 +78,7 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
 
     private void connectToMqtt() {
         String clientId = MqttClient.generateClientId();
-        client = new MqttAndroidClient(this.getApplicationContext(), "tcp://broker.hivemq.com:1883",
+        client = new MqttAndroidClient(this.getApplicationContext(), MQTT_SERVER_URI,
                         clientId);
 
         try {
@@ -117,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
                     // Something went wrong e.g. connection timeout or firewall problems
-                    Log.d(TAG, "onFailure: connectToMqtt");
+                    Log.e(TAG, "onFailure: connectToMqtt");
                 }
             });
         } catch (MqttException e) {
@@ -125,6 +101,43 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
         }
     }
 
+    // BONJOUR - JMDNS -----------------------------------------------------------------------------
+
+    private void obtainLockAndScan() {
+        Log.d(TAG, "Obtain the multicast lock");
+
+        try {
+            // Creating a multicast lock
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            multicastLock = wm.createMulticastLock(getClass().getName());
+            multicastLock.setReferenceCounted(false);
+
+            final InetAddress deviceIpAddress = getIPAddress(true);
+            multicastLock.acquire();
+            jmdns = JmDNS.create(deviceIpAddress, getHostName("HOSTNAME_DEFAULT_VALUE"));
+            jmdns.addServiceTypeListener(this);
+            jmdns.addServiceListener(BJ_SERVICE_TYPE, this);
+        } catch (NullPointerException | IOException e){
+            Log.e(TAG, "Failure to get a multicast lock", e);
+        }
+    }
+
+    private void releaseLock() {
+        Log.d(TAG, "Release the multicast lock");
+
+        if(multicastLock != null)
+            multicastLock.release();
+
+        if(jmdns != null) {
+            jmdns.unregisterAllServices();
+            try {
+                jmdns.close();
+                jmdns = null;
+            } catch (IOException e) {
+                Log.e(TAG, "Failure releasing the multicast lock", e);
+            }
+        }
+    }
     /**
      * Get IP address from first non-localhost interface
      * @param useIPv4 Return ipv4 if true, ipv6 if false
@@ -148,7 +161,7 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
         return null;
     }
 
-    // TODO This need a better solution
+    // TODO This need a better alternative
     public static String getHostName(String defValue) {
         try {
             Method getString = Build.class.getDeclaredMethod("getString", String.class);
@@ -173,11 +186,10 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
 
     @Override
     public void serviceResolved(ServiceEvent event) {
-        Log.i(TAG, "serviceResolved");
-        Log.i(TAG, event.getInfo().getApplication());
-        Log.i(TAG, event.getInfo().getQualifiedName());
-        Log.i(TAG, event.getInfo().getName());
-        Log.i(TAG, event.getInfo().getNiceTextString());
+        ServiceInfo info = event.getInfo();
+
+        Log.i(TAG, "serviceResolved + \n" + info.getApplication() + "\n" +
+                info.getQualifiedName() + "\n" + info.getName() + "\n" + info.getNiceTextString());
     }
 
     // ServiceTypeListener interface method
