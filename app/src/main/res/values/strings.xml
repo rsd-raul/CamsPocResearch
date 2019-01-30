@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">CamsPoc-Research</string>
+    <string name="ffmpeg_not_supported">This device doesn\'t support FFmpeg</string>
+    <string name="choose_file">Choose a file</string>
 </resources>

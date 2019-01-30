@@ -88,9 +88,8 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
 
 
         ffmpegTestButton.setOnClickListener(v -> {
-
-//            testFFmpeg2();
-            testFFmpeg(ffmpegTestButton);
+            testFFmpeg2();
+//            testFFmpeg(ffmpegTestButton);
         });
 
         // Initialize the FFmpeg
@@ -194,8 +193,9 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
         }
     }
 
-
     private void testFFmpeg2(){
+        if (checkPermissions()) return;
+
         Log.i(TAG, "testFFmpeg2: Testing");
 
         mMediaPlayer = new FFmpegMediaPlayer();
@@ -215,7 +215,7 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
         mSurfaceHolder = sv.getHolder();
 
         try {
-            String sauce = "/storage/0000-0000/Download/def.mp4";
+            String sauce = "/storage/emulated/0/Download/xvul7.mp4";
 //            String sauce = "rtp://192.168.112.255:1111";
             mMediaPlayer.reset();
             mMediaPlayer.setDataSource(sauce);
@@ -228,21 +228,7 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
     }
 
     private void testFFmpeg(View view) {
-        if ((ContextCompat.checkSelfPermission(this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) ||
-                (ContextCompat.checkSelfPermission(this,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                        != PackageManager.PERMISSION_GRANTED)) {
-
-            Toast.makeText(this, "The permissions needed are not granted.", Toast.LENGTH_LONG).show();
-
-            String[] permissions = new String[]{ Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.READ_EXTERNAL_STORAGE };
-            ActivityCompat.requestPermissions(this, permissions,
-                    ALL_PERMISSIONS_REQUEST);
-            return;
-        }
+        if (checkPermissions()) return;
 
 //        String command = "-y -i " + inputFilepath + " -strict  experimental -vcodec libx264 -preset " +
 //                "ultrafast -crf 3 -acodec aac -ar 44100 -q:v 20 -vf " +
@@ -280,6 +266,23 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
             Log.e(TAG, "FFmpeg is already running", e);
             Snackbar.make(view, "FFmpeg is already running", Snackbar.LENGTH_LONG).show();
         }
+    }
+
+    private boolean checkPermissions() {
+        if ((ContextCompat.checkSelfPermission(this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) &&
+                (ContextCompat.checkSelfPermission(this,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)) {
+            return false;
+        }
+
+        Toast.makeText(this, "The permissions needed are not granted.", Toast.LENGTH_LONG).show();
+
+        String[] permissions = new String[]{ Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.READ_EXTERNAL_STORAGE };
+        ActivityCompat.requestPermissions(this, permissions,
+                ALL_PERMISSIONS_REQUEST);
+        return true;
     }
 
     @Override
@@ -385,13 +388,13 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
                         return ip;
                 }
             }
-        } catch (Exception ignored) { } // for now eat exceptions
+        } catch (Exception ignored) { } // Ignore right now, change later on
 
         Log.e(TAG, "No IP address could be found. IPv4 only: " + useIPv4);
         return null;
     }
 
-    // TODO This need a better alternative
+    // TODO This needs a better alternative
     public static String getHostName(String defValue) {
         try {
             Method getString = Build.class.getDeclaredMethod("getString", String.class);
@@ -432,10 +435,5 @@ public class MainActivity extends AppCompatActivity implements ServiceListener, 
     public void subTypeForServiceTypeAdded(ServiceEvent event) {
         Log.i(TAG, "subTypeForServiceTypeAdded");
     }
-
-
-
-
-
 
 }

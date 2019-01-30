@@ -39,7 +39,27 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/bj_scan_on" />
 
-    <android.support.v7.widget.RecyclerView
+    <Button
+        android:id="@+id/ffmpeg_test"
+        android:layout_width="144dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="FFmpeg Test"
+        app:layout_constraintStart_toStartOf="@+id/bj_scan_off"
+        app:layout_constraintTop_toBottomOf="@+id/bj_scan_on" />
+
+    <Button
+        android:id="@+id/file_picker"
+        android:layout_width="143dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="File picker"
+        app:layout_constraintStart_toStartOf="@+id/bj_scan_on"
+        app:layout_constraintTop_toBottomOf="@+id/bj_scan_on" />
+
+    <SurfaceView
+        android:id="@+id/video_surface"
+        android:layout_gravity="center"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginBottom="8dp"
@@ -52,5 +72,11 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.0" />
+
+
+    <!--<android.opengl.GLSurfaceView-->
+        <!--android:layout_width=""-->
+        <!--android:layout_height="" />-->
+
 
 </android.support.constraint.ConstraintLayout>
